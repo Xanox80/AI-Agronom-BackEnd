@@ -1,0 +1,65 @@
+- generic [ref=e26]:
+  - banner [ref=e27]:
+    - button "Згорнути або розгорнути меню" [ref=e29] [cursor=pointer]:
+      - generic [ref=e30]: 
+    - generic [ref=e31]: AP Scout
+    - generic [ref=e32]: Demo Chief Agronomist
+    - group "Мова та режим екрана" [ref=e34]:
+      - button "UK" [ref=e36] [cursor=pointer]
+      - button "EN" [ref=e39] [cursor=pointer]
+      - button "Сонячний режим (високий контраст)" [ref=e42] [cursor=pointer]:
+        - generic [ref=e43]: 
+    - button "Вийти" [ref=e45] [cursor=pointer]:
+      - generic [ref=e46]: 
+  - navigation "Головне меню" [ref=e47]:
+    - link " Головна" [ref=e48] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e49]: 
+      - generic [ref=e50]: Головна
+    - link " Скаутинг" [ref=e51] [cursor=pointer]:
+      - /url: /scouting
+      - generic [ref=e52]: 
+      - generic [ref=e53]: Скаутинг
+    - link " Поля" [ref=e54] [cursor=pointer]:
+      - /url: /fields
+      - generic [ref=e55]: 
+      - generic [ref=e56]: Поля
+    - link " Завдання" [ref=e57] [cursor=pointer]:
+      - /url: /tasks
+      - generic [ref=e58]: 
+      - generic [ref=e59]: Завдання
+    - link " Карта уражень" [ref=e60] [cursor=pointer]:
+      - /url: /heatmap
+      - generic [ref=e61]: 
+      - generic [ref=e62]: Карта уражень
+    - link " Черга експерта" [ref=e63] [cursor=pointer]:
+      - /url: /expert
+      - generic [ref=e64]: 
+      - generic [ref=e65]: Черга експерта
+    - link " Довідник" [ref=e66] [cursor=pointer]:
+      - /url: /catalog-admin
+      - generic [ref=e67]: 
+      - generic [ref=e68]: Довідник
+    - link " Налаштування" [ref=e69] [cursor=pointer]:
+      - /url: /settings
+      - generic [ref=e70]: 
+      - generic [ref=e71]: Налаштування
+  - main [ref=e72]:
+    - generic [ref=e74]:
+      - heading "Головна, Demo Chief Agronomist" [level=1] [ref=e75]
+      - button " Новий скаутинг" [ref=e77] [cursor=pointer]:
+        - generic [ref=e78]: 
+        - generic [ref=e79]: Новий скаутинг
+      - generic [ref=e81]:
+        - generic [ref=e82]: Синхронізація
+        - generic [ref=e85]:
+          - alert [ref=e86]:
+            - generic [ref=e87]: "Помилка синхронізації: pull_failed. Повторимо автоматично."
+          - paragraph [ref=e90]: Усі дані відправлено
+          - paragraph [ref=e91]: Ще не синхронізовано
+          - button " Синхронізація..." [disabled] [ref=e93]:
+            - generic [ref=e94]: 
+            - generic [ref=e95]: Синхронізація...
+      - generic [ref=e97]:
+        - generic [ref=e98]: Мої відкриті завдання
+        - paragraph [ref=e100]: Відкритих завдань немає
