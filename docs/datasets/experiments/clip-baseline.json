@@ -1,0 +1,43 @@
+{
+  "name": "clip-baseline",
+  "embedder": {
+    "model": "Xenova/clip-vit-base-patch32",
+    "dtype": "fp32"
+  },
+  "datasets": [
+    {
+      "folder": "wheat-plant-diseases",
+      "mapping": "docs/datasets/wheat-plant-diseases.mapping.json"
+    },
+    {
+      "folder": "wheat-leaf",
+      "mapping": "docs/datasets/wheat-leaf.mapping.json"
+    },
+    {
+      "folder": "plantvillage",
+      "mapping": "docs/datasets/plantvillage.mapping.json"
+    },
+    {
+      "folder": "gbif",
+      "mapping": "docs/datasets/gbif-pests.mapping.json"
+    },
+    {
+      "folder": "sunflower-leaf",
+      "mapping": "docs/datasets/sunflower-leaf.mapping.json"
+    },
+    {
+      "folder": "asdid-soybean",
+      "mapping": "docs/datasets/asdid-soybean.mapping.json"
+    },
+    {
+      "folder": "jic-wheat",
+      "mapping": "docs/datasets/jic-wheat.mapping.json"
+    }
+  ],
+  "testFraction": 0.2,
+  "training": {
+    "epochs": 300,
+    "learningRate": 0.5,
+    "l2": 0.001
+  }
+}

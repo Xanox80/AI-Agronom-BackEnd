@@ -1,0 +1,18 @@
+{
+  "source": "wheat-leaf",
+  "attribution": "Mendeley: Wheat Leaf Dataset (CC BY 4.0)",
+  "classes": {
+    "Healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "wheat_winter"
+    },
+    "septoria": {
+      "diagnosisCode": "septoria_leaf_blotch",
+      "cropCode": "wheat_winter"
+    },
+    "stripe_rust": {
+      "diagnosisCode": "wheat_yellow_rust",
+      "cropCode": "wheat_winter"
+    }
+  }
+}

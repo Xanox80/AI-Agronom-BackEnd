@@ -6,6 +6,7 @@ import {
   CatalogDiagnosisEntity, CropEntity, DiagnosisHypothesisEntity, DiagnosisResultEntity, FieldEntity,
   ObservationEntity, PhotoEntity, ReferenceImageEntity,
 } from '../../domain/entities';
+import { SimilarityModule } from '../similarity/similarity.module';
 import { VisionProviderModule } from '../vision-provider/vision-provider.module';
 import { CalibrationService } from './calibration.service';
 import { CatalogReader } from './catalog-reader.service';
@@ -26,6 +27,7 @@ import { UnsureEvaluator } from './unsure-evaluator.service';
       CatalogDiagnosisEntity, ReferenceImageEntity, CropEntity,
     ]),
     VisionProviderModule,
+    SimilarityModule,
   ],
   controllers: [RecognitionController],
   providers: [

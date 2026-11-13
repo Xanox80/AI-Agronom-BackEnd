@@ -4,7 +4,7 @@ import { OTHER_CODE, UNKNOWN } from './vision.types';
 
 const str = { type: Type.STRING };
 const num = { type: Type.NUMBER };
-const nullable = (schema: object) => ({ ...schema, nullable: true });
+const nullable = <T extends object>(schema: T) => ({ ...schema, nullable: true });
 const enumOf = (values: string[]) => ({ type: Type.STRING, enum: values });
 
 /** Gemini responseSchema mirroring section 8 of docs/architecture.md; diagnosisCode is limited to the allowed catalogue. */
@@ -62,3 +62,18 @@ export const buildVisionResponseSchema = (allowedCodes: string[]) => ({
     outOfDistribution: { type: Type.BOOLEAN },
   },
 });
+
+type GeminiSchema = { type: string; nullable?: boolean; properties?: Record<string, GeminiSchema>; items?: GeminiSchema; [key: string]: unknown };
+
+/** Standard JSON Schema form of the same response shape, for OpenAI-compatible models. */
+export const buildVisionResponseJsonSchema = (allowedCodes: string[]) => toJsonSchema(buildVisionResponseSchema(allowedCodes));
+
+function toJsonSchema({ type, nullable: isNullable, properties, items, ...rest }: GeminiSchema): object {
+  const jsonType = type.toLowerCase();
+  return {
+    ...rest,
+    type: isNullable ? [jsonType, 'null'] : jsonType,
+    ...(properties && { properties: Object.fromEntries(Object.entries(properties).map(([key, value]) => [key, toJsonSchema(value)])) }),
+    ...(items && { items: toJsonSchema(items) }),
+  };
+}

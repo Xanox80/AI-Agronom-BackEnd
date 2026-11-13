@@ -30,6 +30,22 @@ describe('DiagnosisPresenter', () => {
     expect(dto.referenceImages[0].url).toBe('/api/v1/catalog/reference-images/img1/file');
   });
 
+  it('puts the most similar labelled photos before the catalogue images, within the per-hypothesis limit', async () => {
+    const withExamples = {
+      ...result,
+      rawResponse: { locale: 'uk', referenceNeighbours: { examples: [
+        { id: 'p1', diagnosisCode: 'rust', score: 0.95, attribution: 'AP Scout' },
+        { id: 'p2', diagnosisCode: 'rust', score: 0.94, attribution: 'Kaggle' },
+        { id: 'p3', diagnosisCode: 'rust', score: 0.93, attribution: 'Kaggle' },
+      ] } },
+    };
+    const dto = await build(1).present(withExamples as never);
+
+    expect(dto.referenceImages.map((image) => image.url)).toEqual([
+      '/api/v1/similarity/photos/p1', '/api/v1/similarity/photos/p2', '/api/v1/similarity/photos/p3',
+    ]);
+  });
+
   it('does not ask for more photos at the maximum', async () => {
     expect((await build(3).present(result as never)).needsMorePhotos).toBe(false);
   });

@@ -1,0 +1,90 @@
+{
+  "source": "wheat-plant-diseases",
+  "attribution": "Kaggle: wheat-plant-diseases (CC0)",
+  "classes": {
+    "Yellow Rust": {
+      "diagnosisCode": "wheat_yellow_rust",
+      "cropCode": "wheat_winter"
+    },
+    "Brown Rust": {
+      "diagnosisCode": "wheat_leaf_rust",
+      "cropCode": "wheat_winter"
+    },
+    "Septoria": {
+      "diagnosisCode": "septoria_leaf_blotch",
+      "cropCode": "wheat_winter"
+    },
+    "Mildew": {
+      "diagnosisCode": "powdery_mildew_wheat",
+      "cropCode": "wheat_winter"
+    },
+    "Fusarium Head Blight": {
+      "diagnosisCode": "fusarium_head_blight",
+      "cropCode": "wheat_winter"
+    },
+    "Aphid": {
+      "diagnosisCode": "cereal_aphids",
+      "cropCode": "wheat_winter"
+    },
+    "Healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "wheat_winter"
+    },
+    "aphid_test": {
+      "diagnosisCode": "cereal_aphids",
+      "cropCode": "wheat_winter"
+    },
+    "aphid_valid": {
+      "diagnosisCode": "cereal_aphids",
+      "cropCode": "wheat_winter"
+    },
+    "brown_rust_test": {
+      "diagnosisCode": "wheat_leaf_rust",
+      "cropCode": "wheat_winter"
+    },
+    "brown_rust_valid": {
+      "diagnosisCode": "wheat_leaf_rust",
+      "cropCode": "wheat_winter"
+    },
+    "fusarium_head_blight_test": {
+      "diagnosisCode": "fusarium_head_blight",
+      "cropCode": "wheat_winter"
+    },
+    "fusarium_head_blight_valid": {
+      "diagnosisCode": "fusarium_head_blight",
+      "cropCode": "wheat_winter"
+    },
+    "healthy_test": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "wheat_winter"
+    },
+    "healthy_valid": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "wheat_winter"
+    },
+    "mildew_test": {
+      "diagnosisCode": "powdery_mildew_wheat",
+      "cropCode": "wheat_winter"
+    },
+    "mildew_valid": {
+      "diagnosisCode": "powdery_mildew_wheat",
+      "cropCode": "wheat_winter"
+    },
+    "septoria_test": {
+      "diagnosisCode": "septoria_leaf_blotch",
+      "cropCode": "wheat_winter"
+    },
+    "septoria_valid": {
+      "diagnosisCode": "septoria_leaf_blotch",
+      "cropCode": "wheat_winter"
+    },
+    "yellow_rust_test": {
+      "diagnosisCode": "wheat_yellow_rust",
+      "cropCode": "wheat_winter"
+    },
+    "yellow_rust_valid": {
+      "diagnosisCode": "wheat_yellow_rust",
+      "cropCode": "wheat_winter"
+    }
+  }
+}

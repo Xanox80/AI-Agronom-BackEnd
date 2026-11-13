@@ -1,0 +1,26 @@
+{
+  "source": "gbif-pests",
+  "attribution": "iNaturalist via GBIF (CC0 / CC BY, see credits.csv)",
+  "classes": {
+    "Oulema_melanopus": {
+      "diagnosisCode": "cereal_leaf_beetle",
+      "cropCode": "wheat_winter"
+    },
+    "Ostrinia_nubilalis": {
+      "diagnosisCode": "european_corn_borer",
+      "cropCode": "maize"
+    },
+    "Diabrotica_virgifera": {
+      "diagnosisCode": "western_corn_rootworm",
+      "cropCode": "maize"
+    },
+    "Brassicogethes_aeneus": {
+      "diagnosisCode": "pollen_beetle",
+      "cropCode": "rapeseed"
+    },
+    "Psylliodes_chrysocephala": {
+      "diagnosisCode": "cabbage_stem_flea_beetle",
+      "cropCode": "rapeseed"
+    }
+  }
+}

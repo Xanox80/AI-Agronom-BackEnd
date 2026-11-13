@@ -22,6 +22,7 @@ export const testConfig = (overrides: Partial<RecognitionConfig> = {}): Recognit
   maxPhotos: 3,
   storageDir: './data/storage',
   referenceImageUrlBase: '/api/v1/catalog/reference-images',
+  similarPhotoUrlBase: '/api/v1/similarity/photos',
   ...overrides,
 });
 

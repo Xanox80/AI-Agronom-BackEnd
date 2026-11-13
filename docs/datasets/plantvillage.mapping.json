@@ -1,0 +1,18 @@
+{
+  "source": "plantvillage",
+  "attribution": "PlantVillage",
+  "classes": {
+    "Corn_(maize)___Northern_Leaf_Blight": {
+      "diagnosisCode": "northern_leaf_blight_maize",
+      "cropCode": "maize"
+    },
+    "Corn_(maize)___healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "maize"
+    },
+    "Soybean___healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "soybean"
+    }
+  }
+}

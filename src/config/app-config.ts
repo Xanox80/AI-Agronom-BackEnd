@@ -11,8 +11,8 @@ export interface AppConfig {
     dir: string; maxPhotoMb: number; maxVoiceMb: number; allowedImageTypes: string[]; maxPhotosPerObservation: number;
   };
   ai: {
-    provider: 'gemini' | 'mock'; geminiApiKey: string; geminiModel: string; geminiTimeoutMs: number;
-    geminiMaxRetries: number; temperature: number;
+    provider: 'gemini' | 'groq' | 'mock' | 'local'; geminiApiKey: string; geminiModel: string; groqApiKey: string; groqModel: string;
+    timeoutMs: number; maxRetries: number; retryBaseDelayMs: number; retryMaxDelayMs: number; temperature: number;
   };
   recognition: {
     calibrationTemperature: number; unsureThreshold: number; oodEntropyThreshold: number; closeMargin: number;
@@ -31,7 +31,8 @@ export interface AppConfig {
   catalog: { staleDays: number; seedDemo: boolean; defaultRegion: string };
   sync: {
     backoffBaseMs: number; backoffMaxMs: number; backoffFactor: number; batchSize: number;
-    refineConcurrency: number; clientConfigExposed: boolean;
+    refineConcurrency: number; refineMaxAttempts: number; refineRetryBaseMs: number; refineRetryMaxMs: number;
+    refineQuotaPauseMs: number; clientConfigExposed: boolean;
   };
   stock: { lowThresholdFraction: number };
   audit: { retentionDays: number };

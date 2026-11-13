@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import Groq from 'groq-sdk';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfig } from '../../config/app-config';
@@ -32,6 +33,11 @@ import { RecommendationInputLoader } from './recommendation-input.loader';
 import { RecommendationMapper } from './recommendation.mapper';
 import { RecommendationService } from './recommendation.service';
 import { RECOMMENDATION_SETTINGS, readRecommendationSettings } from './recommendation.settings';
+import { GroqTreatmentWriter, TREATMENT_WRITER } from './treatment-plan/groq-treatment-writer';
+import { TreatmentFactsLoader } from './treatment-plan/treatment-facts.loader';
+import { TreatmentPlanController } from './treatment-plan/treatment-plan.controller';
+import { TreatmentPlanService } from './treatment-plan/treatment-plan.service';
+import { TREATMENT_PLAN_SETTINGS, TreatmentPlanSettings, readTreatmentPlanSettings } from './treatment-plan/treatment-plan.settings';
 
 @Module({
   imports: [StockModule, WeatherModule, TypeOrmModule.forFeature([
@@ -40,13 +46,19 @@ import { RECOMMENDATION_SETTINGS, readRecommendationSettings } from './recommend
     CropEntity, CatalogDiagnosisEntity, ThresholdEntity, ProductEntity, ProductActiveSubstanceEntity, ActiveSubstanceEntity,
     ProductRegistrationEntity, CatalogStateEntity,
   ])],
-  controllers: [RecommendationController, AutoApproveController],
+  controllers: [RecommendationController, AutoApproveController, TreatmentPlanController],
   providers: [
     { provide: RECOMMENDATION_SETTINGS, inject: [ConfigService], useFactory: (config: ConfigService<AppConfig, true>) => readRecommendationSettings(config) },
     CatalogReader, RecommendationInputLoader, RecommendationMapper, RecommendationAssembler,
     RecommendationService, AutoApproveService, ExplanationBuilder, RecommendationPipeline,
     ActionLevelStep, AllowedProductsStep, FilterStep, SafetyWeatherStep, RankStep,
     BbchWindowRule, PreHarvestIntervalRule, ApplicationCountRule, MinIntervalRule, CompatibilityRule, RotationRule,
+    { provide: TREATMENT_PLAN_SETTINGS, inject: [ConfigService], useFactory: (config: ConfigService<AppConfig, true>) => readTreatmentPlanSettings(config) },
+    {
+      provide: TREATMENT_WRITER, inject: [TREATMENT_PLAN_SETTINGS],
+      useFactory: (settings: TreatmentPlanSettings) => (settings.groqApiKey ? new GroqTreatmentWriter(settings, new Groq({ apiKey: settings.groqApiKey, maxRetries: 1 })) : null),
+    },
+    TreatmentFactsLoader, TreatmentPlanService,
   ],
   exports: [RecommendationService],
 })

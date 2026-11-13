@@ -1,5 +1,8 @@
 import { CatalogDiagnosisEntity } from '../../domain/entities';
+import { SimilarCaseFinder } from '../similarity/similar-case-finder.service';
+import { SimilarityEvidence } from '../similarity/similarity.types';
 import { AnswerType } from '../../domain/enums';
+import { VisionProviderError } from '../vision-provider/vision-provider.error';
 import { VisionOutput, VisionProvider } from '../vision-provider/vision.types';
 import { frameOutput, hypothesis, testConfig } from './__fixtures__/recognition-fixtures';
 import { CalibrationService } from './calibration.service';
@@ -18,10 +21,13 @@ const input = (photoCount: number, overrides: Partial<PipelineInput> = {}): Pipe
   catalog: new Map([diagnosis('rust'), diagnosis('septoria')].map((d) => [d.code, d])), ...overrides,
 });
 
-function pipelineFor(analyze: VisionProvider['analyze'], config: RecognitionConfig = testConfig()) {
+const references = (evidence: SimilarityEvidence | null, blendWeight = 0.5) =>
+  ({ find: jest.fn().mockResolvedValue(evidence), blendWeight }) as unknown as SimilarCaseFinder;
+
+function pipelineFor(analyze: VisionProvider['analyze'], config: RecognitionConfig = testConfig(), similarity = references(null, 0)) {
   const provider: VisionProvider = { name: 'mock', model: 'mock-1', analyze };
   return new RecognitionPipeline(
-    provider, config, new MultiFrameAggregator(config), new CalibrationService(config), new UnsureEvaluator(config));
+    provider, config, new MultiFrameAggregator(config), new CalibrationService(config), new UnsureEvaluator(config), similarity);
 }
 
 describe('RecognitionPipeline', () => {
@@ -66,6 +72,15 @@ describe('RecognitionPipeline', () => {
     const analyze = jest.fn().mockRejectedValue(new Error('boom'));
     const result = await pipelineFor(analyze).run(input(2));
     expect(result).toMatchObject({ unsure: true, unsureReason: UnsureReason.ProviderError, hypotheses: [] });
+    expect(result.rateLimit).toBeUndefined();
+  });
+
+  it('reports the rate limit when every frame failed with HTTP 429', async () => {
+    const analyze = jest.fn()
+      .mockRejectedValueOnce(new VisionProviderError('request_failed', 'x', 1, 429, { retryAfterMs: 5000 }))
+      .mockRejectedValueOnce(new VisionProviderError('request_failed', 'x', 1, 429, { dailyQuotaExhausted: true }));
+    const result = await pipelineFor(analyze).run(input(2));
+    expect(result.rateLimit).toEqual({ retryAfterMs: 5000, dailyQuotaExhausted: true });
   });
 
   it('survives one failed frame and uses the rest', async () => {
@@ -135,5 +150,29 @@ describe('RecognitionPipeline', () => {
     const catalog = new Map([diagnosis('rust'), diagnosis('septoria', { isCritical: true })].map((d) => [d.code, d]));
     const analyze = jest.fn().mockResolvedValue(frameOutput([hypothesis('rust', 0.45), hypothesis('septoria', 0.45)]));
     expect((await pipelineFor(analyze, config).run(input(1, { catalog }))).hypotheses[0].diagnosisCode).toBe('septoria');
+  });
+  it('lets labelled reference neighbours overturn a close provider call', async () => {
+    const analyze = jest.fn().mockResolvedValue(frameOutput([hypothesis('rust', 0.5), hypothesis('septoria', 0.4)]));
+    const evidence = { votes: { septoria: 1 }, bestScore: 0.93, neighbourCount: 20, voteSource: 'neighbours' as const, examples: [], farFromReferences: false };
+    const result = await pipelineFor(analyze, testConfig(), references(evidence)).run(input(1));
+
+    expect(result.hypotheses[0].diagnosisCode).toBe('septoria');
+    expect(result.rawResponse.referenceNeighbours).toMatchObject({ bestScore: 0.93, neighbourCount: 20 });
+  });
+
+  it('flags out of distribution when no labelled reference is close enough', async () => {
+    const analyze = jest.fn().mockResolvedValue(frameOutput([hypothesis('rust', 0.9)]));
+    const evidence = { votes: { rust: 1 }, bestScore: 0.4, neighbourCount: 20, voteSource: 'neighbours' as const, examples: [], farFromReferences: true };
+    const result = await pipelineFor(analyze, testConfig(), references(evidence)).run(input(1));
+
+    expect(result).toMatchObject({ unsure: true, unsureReason: UnsureReason.OutOfDistribution, outOfDistribution: true });
+  });
+
+  it('looks references up with the observation crop and the allowed codes', async () => {
+    const similarity = references(null);
+    await pipelineFor(jest.fn().mockResolvedValue(frameOutput([hypothesis('rust', 0.9)])), testConfig(), similarity)
+      .run(input(2, { context: { cropCode: 'wheat_winter' } }));
+
+    expect(similarity.find).toHaveBeenCalledWith(expect.any(Array), 'wheat_winter', ['rust', 'septoria']);
   });
 });

@@ -8,9 +8,11 @@ export function buildConfig(env: Env): AppConfig {
   const r = new EnvReader(env);
   const nodeEnv = r.string('NODE_ENV', 'development');
   const production = nodeEnv === 'production';
-  const provider = r.oneOf('AI_PROVIDER', ['gemini', 'mock'] as const, 'gemini');
+  const provider = r.oneOf('AI_PROVIDER', ['gemini', 'groq', 'mock', 'local'] as const, 'gemini');
   const geminiApiKey = r.string('GEMINI_API_KEY', '');
+  const groqApiKey = r.string('GROQ_API_KEY', '');
   if (production && provider === 'gemini' && !geminiApiKey) throw new Error('Missing required config key GEMINI_API_KEY');
+  if (production && provider === 'groq' && !groqApiKey) throw new Error('Missing required config key GROQ_API_KEY');
 
   return {
     app: {
@@ -39,7 +41,11 @@ export function buildConfig(env: Env): AppConfig {
     },
     ai: {
       provider, geminiApiKey, geminiModel: r.string('GEMINI_MODEL', 'gemini-3.5-flash'),
-      geminiTimeoutMs: r.number('GEMINI_TIMEOUT_MS', 30000), geminiMaxRetries: r.number('GEMINI_MAX_RETRIES', 2),
+      groqApiKey, groqModel: r.string('GROQ_MODEL', 'qwen/qwen3.8-27b'),
+      timeoutMs: r.number('AI_TIMEOUT_MS', r.number('GEMINI_TIMEOUT_MS', 30000)),
+      maxRetries: r.number('AI_MAX_RETRIES', r.number('GEMINI_MAX_RETRIES', 2)),
+      retryBaseDelayMs: r.number('AI_RETRY_BASE_DELAY_MS', r.number('GEMINI_RETRY_BASE_DELAY_MS', 1500)),
+      retryMaxDelayMs: r.number('AI_RETRY_MAX_DELAY_MS', r.number('GEMINI_RETRY_MAX_DELAY_MS', 30000)),
       temperature: r.number('AI_TEMPERATURE', 0.2),
     },
     recognition: {
@@ -81,7 +87,10 @@ export function buildConfig(env: Env): AppConfig {
     sync: {
       backoffBaseMs: r.number('SYNC_BACKOFF_BASE_MS', 2000), backoffMaxMs: r.number('SYNC_BACKOFF_MAX_MS', 300000),
       backoffFactor: r.number('SYNC_BACKOFF_FACTOR', 2), batchSize: r.number('SYNC_BATCH_SIZE', 25),
-      refineConcurrency: r.number('SYNC_REFINE_CONCURRENCY', 2), clientConfigExposed: r.boolean('SYNC_CLIENT_CONFIG_EXPOSED', true),
+      refineConcurrency: r.number('SYNC_REFINE_CONCURRENCY', 2), refineMaxAttempts: r.number('SYNC_REFINE_MAX_ATTEMPTS', 5),
+      refineRetryBaseMs: r.number('SYNC_REFINE_RETRY_BASE_MS', 60000), refineRetryMaxMs: r.number('SYNC_REFINE_RETRY_MAX_MS', 900000),
+      refineQuotaPauseMs: r.number('SYNC_REFINE_QUOTA_PAUSE_MS', 3600000),
+      clientConfigExposed: r.boolean('SYNC_CLIENT_CONFIG_EXPOSED', true),
     },
     stock: { lowThresholdFraction: r.number('STOCK_LOW_THRESHOLD_FRACTION', 0.1) },
     audit: { retentionDays: r.number('AUDIT_RETENTION_DAYS', 730) },

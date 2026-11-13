@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { ObservationEntity, PhotoEntity, SyncRecordEntity } from '../../../domain/entities';
 import { fakeConfig } from '../__fixtures__/test-database';
-import { ObservationRefiner } from './observation-refiner';
+import { ObservationRefiner, RefinementThrottledError } from './observation-refiner';
 import { RefinementQueueService } from './refinement-queue.service';
 
 const FARM = 'farm-1';
@@ -23,7 +23,7 @@ describe('RefinementQueueService', () => {
     await queue.scheduleWhenPhotosExist('o1', FARM);
     await tick();
 
-    expect(refine).toHaveBeenCalledWith('o1', FARM);
+    expect(refine).toHaveBeenCalledWith('o1', FARM, false);
   });
 
   it('skips observations that have no photos yet', async () => {
@@ -93,6 +93,95 @@ describe('RefinementQueueService', () => {
     expect(refine).toHaveBeenCalledTimes(2);
   });
 
+  describe('after a failed refinement', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('retries with exponential backoff, capped, and flags the last attempt', async () => {
+      const refine = jest.fn().mockRejectedValue(new Error('provider down'));
+      const queue = build({ refine });
+
+      queue.enqueue('o1', FARM);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(refine).toHaveBeenLastCalledWith('o1', FARM, false);
+
+      await jest.advanceTimersByTimeAsync(999);
+      expect(refine).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(refine).toHaveBeenCalledTimes(2);
+
+      await jest.advanceTimersByTimeAsync(1500);
+      expect(refine).toHaveBeenCalledTimes(3);
+      expect(refine).toHaveBeenLastCalledWith('o1', FARM, true);
+
+      await jest.advanceTimersByTimeAsync(60000);
+      expect(refine).toHaveBeenCalledTimes(3);
+    });
+
+    it('stops retrying once a refinement succeeds', async () => {
+      const refine = jest.fn().mockRejectedValueOnce(new Error('provider down')).mockResolvedValue(undefined);
+      const queue = build({ refine });
+
+      queue.enqueue('o1', FARM);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(refine).toHaveBeenCalledTimes(2);
+
+      await jest.advanceTimersByTimeAsync(60000);
+      expect(refine).toHaveBeenCalledTimes(2);
+    });
+
+    it('pauses the whole queue for the quota pause when the daily quota is spent, without spending attempts', async () => {
+      const refine = jest.fn().mockRejectedValueOnce(new RefinementThrottledError(undefined, true)).mockResolvedValue(undefined);
+      const queue = build({ refine });
+
+      queue.enqueue('o1', FARM);
+      await jest.advanceTimersByTimeAsync(0);
+      queue.enqueue('o2', FARM);
+      await jest.advanceTimersByTimeAsync(9999);
+      expect(refine).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(1);
+      expect(refine).toHaveBeenCalledTimes(3);
+      expect(refine).toHaveBeenCalledWith('o1', FARM, false);
+      expect(refine).toHaveBeenCalledWith('o2', FARM, false);
+    });
+
+    it('pauses for the delay the provider asked for, at least the retry base', async () => {
+      const refine = jest.fn().mockRejectedValueOnce(new RefinementThrottledError(4000, false)).mockResolvedValue(undefined);
+      const queue = build({ refine });
+
+      queue.enqueue('o1', FARM);
+      await jest.advanceTimersByTimeAsync(3999);
+      expect(refine).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(refine).toHaveBeenCalledTimes(2);
+    });
+
+    it('drops the pause when the module shuts down', async () => {
+      const refine = jest.fn().mockRejectedValue(new RefinementThrottledError(undefined, true));
+      const queue = build({ refine });
+
+      queue.enqueue('o1', FARM);
+      await jest.advanceTimersByTimeAsync(0);
+      queue.onModuleDestroy();
+      await jest.advanceTimersByTimeAsync(60000);
+
+      expect(refine).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops a scheduled retry when the module shuts down', async () => {
+      const refine = jest.fn().mockRejectedValue(new Error('provider down'));
+      const queue = build({ refine });
+
+      queue.enqueue('o1', FARM);
+      await jest.advanceTimersByTimeAsync(0);
+      queue.onModuleDestroy();
+      await jest.advanceTimersByTimeAsync(60000);
+
+      expect(refine).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('does nothing when no refiner is provided', async () => {
     const queue = build(undefined);
 
@@ -106,6 +195,6 @@ describe('RefinementQueueService', () => {
     await queue.onApplicationBootstrap();
     await tick();
 
-    expect(refine).toHaveBeenCalledWith('o9', FARM);
+    expect(refine).toHaveBeenCalledWith('o9', FARM, false);
   });
 });

@@ -1,73 +1,56 @@
 import { AppConfig } from '../../config/app-config';
+import { RetryingVisionProvider } from './retrying-vision.provider';
 import { buildSystemInstruction, buildUserPrompt } from './vision-prompt.builder';
-import { VisionProviderError, VisionProviderErrorCode } from './vision-provider.error';
-import { InvalidVisionResponseError, parseVisionResponse } from './vision-response.parser';
+import { RetryHint } from './vision-provider.error';
+import { parseVisionResponse } from './vision-response.parser';
 import { buildVisionResponseSchema } from './vision-response.schema';
-import { VisionInput, VisionOutput, VisionProvider } from './vision.types';
+import { VisionInput, VisionOutput } from './vision.types';
 
 /** The slice of the @google/genai client this provider needs; lets tests inject a fake. */
 export interface GeminiClient {
   models: { generateContent(params: any): Promise<{ text?: string }> };
 }
 
-const INVALID_RESPONSE_RETRIES = 1;
-const TIMEOUT_PATTERN = /timeout|timed out|abort/i;
+const RETRY_DELAY_PATTERN = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/;
+const DAILY_QUOTA_PATTERN = /PerDay/;
+const MS_PER_SECOND = 1000;
 
-export class GeminiVisionProvider implements VisionProvider {
+export class GeminiVisionProvider extends RetryingVisionProvider {
   readonly name = 'gemini';
   readonly model: string;
+  protected readonly displayName = 'Gemini';
 
-  constructor(private readonly config: AppConfig['ai'], private readonly client: GeminiClient, private readonly maxHypotheses: number) {
+  constructor(config: AppConfig['ai'], private readonly client: GeminiClient, maxHypotheses: number) {
+    super(config, maxHypotheses);
     this.model = config.geminiModel;
   }
 
-  async analyze(input: VisionInput): Promise<VisionOutput> {
-    const attempts = this.config.geminiMaxRetries + 1;
-    let invalidResponses = 0;
-    let last: VisionProviderError | undefined;
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        return await this.requestOnce(input);
-      } catch (error) {
-        last = this.toProviderError(error, attempt);
-        if (last.code === 'invalid_response' && ++invalidResponses > INVALID_RESPONSE_RETRIES) break;
-      }
-    }
-    throw last;
-  }
-
-  private async requestOnce(input: VisionInput): Promise<VisionOutput> {
+  protected async requestOnce(input: VisionInput): Promise<VisionOutput> {
     const response = await this.client.models.generateContent({
-      model: this.config.geminiModel,
+      model: this.model,
       contents: [{ role: 'user', parts: this.buildParts(input) }],
       config: {
         systemInstruction: buildSystemInstruction(this.maxHypotheses),
         temperature: this.config.temperature,
         responseMimeType: 'application/json',
         responseSchema: buildVisionResponseSchema(input.allowedDiagnosisCodes),
-        httpOptions: { timeout: this.config.geminiTimeoutMs },
+        httpOptions: { timeout: this.config.timeoutMs },
       },
     });
     return parseVisionResponse(this.parseJson(response.text), input.allowedDiagnosisCodes, input.photos.length, this.maxHypotheses);
   }
 
-  private parseJson(text: string | undefined): unknown {
-    try {
-      return JSON.parse(text ?? '');
-    } catch {
-      throw new InvalidVisionResponseError('response is not valid JSON');
-    }
+  /** Reads only the retry delay and the quota kind from a Gemini 429 body (google.rpc RetryInfo / QuotaFailure). */
+  protected retryHintOf(_error: unknown, message: string): RetryHint {
+    const delay = RETRY_DELAY_PATTERN.exec(message);
+    return {
+      retryAfterMs: delay ? Math.ceil(Number(delay[1]) * MS_PER_SECOND) : undefined,
+      dailyQuotaExhausted: DAILY_QUOTA_PATTERN.test(message),
+    };
   }
 
   private buildParts(input: VisionInput) {
     const images = input.photos.map((p) => ({ inlineData: { data: p.bytes.toString('base64'), mimeType: p.mimeType } }));
     return [...images, { text: buildUserPrompt(input) }];
-  }
-
-  private toProviderError(error: unknown, attempts: number): VisionProviderError {
-    const invalid = error instanceof InvalidVisionResponseError;
-    const message = error instanceof Error ? error.message : 'unknown error';
-    const code: VisionProviderErrorCode = invalid ? 'invalid_response' : TIMEOUT_PATTERN.test(message) ? 'timeout' : 'request_failed';
-    return new VisionProviderError(code, invalid ? message : `Gemini request failed: ${error instanceof Error ? error.name : 'error'}`, attempts);
   }
 }

@@ -1,0 +1,26 @@
+{
+  "source": "jic-wheat",
+  "attribution": "Zenodo: JIC wheat disease images, Long 2023 (CC BY 4.0)",
+  "classes": {
+    "BrownRust": {
+      "diagnosisCode": "wheat_leaf_rust",
+      "cropCode": "wheat_winter"
+    },
+    "YellowRust": {
+      "diagnosisCode": "wheat_yellow_rust",
+      "cropCode": "wheat_winter"
+    },
+    "Septoria": {
+      "diagnosisCode": "septoria_leaf_blotch",
+      "cropCode": "wheat_winter"
+    },
+    "Mildew": {
+      "diagnosisCode": "powdery_mildew_wheat",
+      "cropCode": "wheat_winter"
+    },
+    "Healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "wheat_winter"
+    }
+  }
+}

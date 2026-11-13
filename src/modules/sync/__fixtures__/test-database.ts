@@ -11,7 +11,8 @@ export async function openTestDatabase(): Promise<DataSource> {
   return dataSource.initialize();
 }
 
-export const syncSettings = { backoffBaseMs: 1000, backoffMaxMs: 60000, backoffFactor: 2, batchSize: 3, refineConcurrency: 1, clientConfigExposed: true };
+export const syncSettings = { backoffBaseMs: 1000, backoffMaxMs: 60000, backoffFactor: 2, batchSize: 3, refineConcurrency: 1,
+  refineMaxAttempts: 3, refineRetryBaseMs: 1000, refineRetryMaxMs: 1500, refineQuotaPauseMs: 10000,clientConfigExposed: true };
 
 export function fakeConfig(): ConfigService<never, true> {
   const values: Record<string, unknown> = {

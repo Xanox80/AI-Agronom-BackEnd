@@ -47,7 +47,7 @@ export class DiagnosisStore {
       pestDensityPerM2: result.pest?.densityPerM2 ?? null,
       clarifyingQuestions: result.questions,
       answers: input.answers,
-      rawResponse: result.rawResponse,
+      rawResponse: { ...result.rawResponse, photoSeqs: input.photoSeqs },
       latencyMs: result.latencyMs,
     });
     const saved = await this.results.save(entity);
@@ -72,6 +72,10 @@ export class DiagnosisStore {
 
   findById(id: string, farmId: string): Promise<DiagnosisResultEntity | null> {
     return this.results.findOne({ where: { id, farmId } });
+  }
+
+  findByPass(observationId: string, farmId: string, pass: DiagnosisPass): Promise<DiagnosisResultEntity | null> {
+    return this.results.findOne({ where: { observationId, farmId, pass } });
   }
 
   findLatest(observationId: string, farmId: string): Promise<DiagnosisResultEntity | null> {

@@ -15,6 +15,7 @@ import { FieldsModule } from './modules/fields/fields.module';
 import { ObservationsModule } from './modules/observations/observations.module';
 import { RecognitionModule } from './modules/recognition/recognition.module';
 import { RecommendationModule } from './modules/recommendation/recommendation.module';
+import { ReferenceFeedbackModule } from './modules/similarity/feedback/reference-feedback.module';
 import { StockModule } from './modules/stock/stock.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { TasksModule } from './modules/tasks/tasks.module';
@@ -36,7 +37,7 @@ const IN_MEMORY_DB = ':memory:';
       },
     }),
     AuthModule, FieldsModule, ObservationsModule, VisionProviderModule, RecognitionModule, CatalogModule,
-    WeatherModule, RecommendationModule, TasksModule, AnalyticsModule, SyncModule, ExpertModule, StockModule,
+    WeatherModule, RecommendationModule, TasksModule, AnalyticsModule, SyncModule, ExpertModule, StockModule, ReferenceFeedbackModule,
   ],
 })
 export class AppModule {}

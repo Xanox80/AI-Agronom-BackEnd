@@ -11,6 +11,7 @@ export type RecognitionConfig = AppConfig['recognition'] & {
   maxPhotos: number;
   storageDir: string;
   referenceImageUrlBase: string;
+  similarPhotoUrlBase: string;
   providerConcurrency: number;
   fieldHistoryLimit: number;
   oodFrameFraction: number;
@@ -53,5 +54,6 @@ export function buildRecognitionConfig(app: AppConfig, env: Env): RecognitionCon
     maxPhotos: app.storage.maxPhotosPerObservation,
     storageDir: app.storage.dir,
     referenceImageUrlBase: `/${app.app.apiPrefix}/catalog/reference-images`,
+    similarPhotoUrlBase: `/${app.app.apiPrefix}/similarity/photos`,
   };
 }

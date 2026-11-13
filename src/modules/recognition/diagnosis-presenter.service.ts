@@ -7,6 +7,7 @@ import { CatalogReader } from './catalog-reader.service';
 import { DiagnosisStore } from './diagnosis-store.service';
 import { RECOGNITION_CONFIG, RecognitionConfig } from './recognition.config';
 import { RecognitionStatus } from './recognition.constants';
+import { similarPhotoReferences } from './similar-photo-references';
 
 export interface RecognitionResultDto extends DiagnosisResultDto {
   status: RecognitionStatus;
@@ -39,12 +40,15 @@ export class DiagnosisPresenter {
         ? undefined
         : { x: h.regionX, y: h.regionY ?? 0, w: h.regionW ?? 0, h: h.regionH ?? 0, photoSeq: h.regionPhotoSeq },
     }));
-    const referenceImages: ReferenceImageDto[] = hypotheses.flatMap((h) =>
-      (imagesByDiagnosis.get(h.diagnosisId ?? '') ?? []).map((image) => ({
+    const similar = similarPhotoReferences(result.rawResponse, hypotheses.map((h) => h.diagnosisCode), this.config.similarPhotoUrlBase);
+    const referenceImages: ReferenceImageDto[] = hypotheses.flatMap((h) => [
+      ...similar.filter((image) => image.diagnosisCode === h.diagnosisCode),
+      ...(imagesByDiagnosis.get(h.diagnosisId ?? '') ?? []).map((image) => ({
         id: image.id, diagnosisCode: h.diagnosisCode, stage: image.stage ?? undefined,
         url: `${this.config.referenceImageUrlBase}/${image.id}/file`,
         caption: image.caption, attribution: image.attribution,
-      })));
+      })),
+    ].slice(0, this.config.referencesPerHypothesis));
 
     return {
       id: result.id, observationId: result.observationId, pass: result.pass, modelVersion: result.modelVersion,

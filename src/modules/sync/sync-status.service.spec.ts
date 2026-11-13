@@ -4,6 +4,7 @@ import {
   CatalogStateEntity, DiagnosisResultEntity, FarmEntity, ObservationEntity, PhotoEntity, SyncRecordEntity,
 } from '../../domain/entities';
 import { DiagnosisPass, SyncOperation, SyncStatus } from '../../domain/enums';
+import { UnsureReason } from '../recognition/recognition.constants';
 import { actorOf, createFarm, fakeConfig, openTestDatabase, syncSettings } from './__fixtures__/test-database';
 import { SyncPullService } from './sync-pull.service';
 import { SyncStatusService } from './sync-status.service';
@@ -55,6 +56,20 @@ describe('SyncStatusService', () => {
 
     expect(status.pendingRefinement).toBe(1);
     expect(status.lastPushAt).toEqual(expect.any(String));
+  });
+
+  it('still counts an observation whose server refinement ended in a provider failure', async () => {
+    const failed = await syncObservationWithPhoto();
+    const results = db.getRepository(DiagnosisResultEntity);
+    await results.save(results.create({
+      farmId, observationId: failed, pass: DiagnosisPass.ServerRefined, providerName: 'gemini', modelVersion: 'm',
+      calibrationTemperature: 1, entropy: 1, unsure: true, unsureReason: UnsureReason.ProviderError,
+      clarifyingQuestions: [], answers: {}, rawResponse: {},
+    }));
+
+    const status = await service.status(actorOf(farmId), 'd1');
+
+    expect(status.pendingRefinement).toBe(1);
   });
 
   it('reports the catalogue version of the farm region and the client backoff settings', async () => {

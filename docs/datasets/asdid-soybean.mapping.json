@@ -1,0 +1,14 @@
+{
+  "source": "asdid-soybean",
+  "attribution": "Zenodo: Auburn Soybean Disease Image Dataset 7304859 (CC0)",
+  "classes": {
+    "downey_mildew": {
+      "diagnosisCode": "soybean_downy_mildew",
+      "cropCode": "soybean"
+    },
+    "unused_healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "soybean"
+    }
+  }
+}

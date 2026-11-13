@@ -1,0 +1,7 @@
+{
+  "source": "plantdoc",
+  "classes": {
+    "Corn leaf blight": { "diagnosisCode": "northern_leaf_blight_maize", "cropCode": "maize" },
+    "Soyabean leaf": { "diagnosisCode": "healthy_plant", "cropCode": "soybean" }
+  }
+}

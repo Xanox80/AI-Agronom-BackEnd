@@ -23,5 +23,5 @@ live('GeminiVisionProvider live smoke test', () => {
     });
     expect(Array.isArray(out.hypotheses)).toBe(true);
     expect(typeof out.outOfDistribution).toBe('boolean');
-  }, config.ai.geminiTimeoutMs * (config.ai.geminiMaxRetries + 1) + 5000);
+  }, config.ai.timeoutMs * (config.ai.maxRetries + 1) + 5000);
 });

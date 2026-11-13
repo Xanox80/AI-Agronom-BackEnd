@@ -214,7 +214,7 @@ GET /farms/me (any) -> `FarmDto {id,name,regionCode,timezone,defaultSafetyBuffer
 | POST /observations/:id/photos | S,C,M | multipart `file`, `clientId`, `seq`, `qualityReport` (JSON string) -> PhotoDto (max photos per observation from config) |
 | GET /photos/:id/file | any | -> image bytes (farm-scoped; `?w=` optional thumbnail not in MVP) |
 | POST /observations/:id/voice-note | S,C,M | multipart `file`, `clientId`, `durationSec` -> VoiceNoteDto |
-| POST /observations/:id/confirm | S,C | `{diagnosisId, correctedFromModel: boolean}` -> ObservationDto (sets confirmed; emits `observation.confirmed`) |
+| POST /observations/:id/confirm | S,C | `{diagnosisId, correctedFromModel: boolean}` -> ObservationDto (sets confirmed; emits `observation.confirmed`; with `SIMILARITY_ENABLED` the observation's photos join the reference base under the confirmed diagnosis and the local classifier is retrained `SIMILARITY_RETRAIN_DELAY_MS` later) |
 | DELETE /observations/:id | C | -> 204 |
 
 ### 3.5 Diagnosis / recognition (be-recognition, uses be-vision-provider)
@@ -226,8 +226,9 @@ GET /farms/me (any) -> `FarmDto {id,name,regionCode,timezone,defaultSafetyBuffer
 | POST /observations/:id/diagnose | S,C,M,E | `{}` -> DiagnosisResultDto (pass `initial`; multi-frame aggregation over all photos; context from observation + field history + weather; sets `unsure` and creates expert case when below threshold/OOD) |
 | GET /observations/:id/diagnosis | any | -> latest DiagnosisResultDto (404 if none) |
 | POST /diagnoses/:resultId/answers | S,C,M | `{answers: {[questionId]: string}}` -> DiagnosisResultDto (re-ranks hypotheses with answers, calls provider again with answers) |
-| POST /observations/:id/refine | S,C | `{}` -> DiagnosisResultDto (pass `server_refined`; also run automatically by be-sync after sync, FR-26) |
+| POST /observations/:id/refine | S,C | `{}` -> DiagnosisResultDto (pass `server_refined`; also run automatically by be-sync after sync, FR-26; the automatic run skips photos already refined successfully and retries provider failures; the PWA waits for it and does not call `/diagnose` for synced observations) |
 | GET /recognition/status | any | -> `{provider, model, thresholds: {unsure, ood}, temperature}` (diagnostics, no secrets) |
+| GET /similarity/photos/:id | any | -> image bytes of a labelled photo from the reference base (be-similarity); `referenceImages` of a diagnosis list the photos most similar to the scout's photos first (caption "Схоже на ваше фото на N%", `attribution` = dataset credit), then catalogue images, at most `RECOGNITION_REFERENCES_PER_HYPOTHESIS` per hypothesis |
 
 ### 3.6 Catalogue (be-catalog)
 
@@ -275,11 +276,14 @@ Cache by rounded coordinates (precision and TTL from config); on provider failur
 | POST /recommendations/:id/approve | C | `{}` -> RecommendationDto |
 | POST /recommendations/:id/reject | C | `{reason}` -> RecommendationDto |
 | POST /recommendations/:id/recompute | S,C | `{}` -> RecommendationDto (fresh weather/stock; keeps draft) |
+| POST /recommendations/:id/treatment-plan | S,C | `{tankVolumeL?}` -> TreatmentPlanDto; 503 `TREATMENT_PLAN_DISABLED` without GROQ_API_KEY, 503 `TREATMENT_PLAN_UNAVAILABLE` when Groq fails |
 | GET /auto-approve-settings | C | -> `AutoApproveSettingDto[] {id, problemCategory?, diagnosisId?, minConfidence, enabled}` |
 | PUT /auto-approve-settings | C | `{problemCategory?, diagnosisId?, minConfidence, enabled}` -> AutoApproveSettingDto |
 | DELETE /auto-approve-settings/:id | C | -> 204 |
 
 Engine pipeline (section 5), implemented as ordered steps (strategy per step): action level -> allowed products (crop+diagnosis) -> filters (pre-harvest interval, application count, compatibility, rotation from treatment_log) -> weather window + safety -> rank (efficacy, stock, cost per ha) -> explanation. The LLM never selects products or doses.
+
+Treatment plan (on request, not stored): a Groq text model (`TREATMENT_PLAN_MODEL`) gets only the products the engine kept, with their registry limits, and arranges them into a course (which product on which day, rate, spray volume, timing, precautions). The answer is re-checked in code: unknown product, rate outside `rateMin..rateMax`, spray volume outside `TREATMENT_PLAN_WATER_*`, more than `maxApplications` per product or applications closer than `minIntervalDays` reject the whole plan (`status: rejected`, `validationErrors`). Tank and field proportions are computed in code, never by the model. `TreatmentPlanDto = {recommendationId, status: ready|no_treatment|rejected, model?, summary, applications: [{productId, productName, rateValue, rateUnit, waterLPerHa, dayOffset, timing, note, solution: {productPerHa, productUnit, waterLPerHa, productPer100L, tankVolumeL, productPerTank, hectaresPerTank, tanksForField?, productForField?}}], precautions, monitoring, validationErrors, disclaimerCode: treatment_plan_needs_agronomist, generatedAt}`.
 
 ### 3.9 Tasks (be-tasks)
 
@@ -381,11 +385,21 @@ Existing `backend/.env` holds the real `GEMINI_API_KEY`: never print/overwrite. 
 | UPLOAD_MAX_VOICE_MB | 5 | |
 | UPLOAD_ALLOWED_IMAGE_TYPES | image/jpeg,image/png,image/webp | |
 | MAX_PHOTOS_PER_OBSERVATION | 3 | |
-| AI_PROVIDER | gemini | `gemini` or `mock` (deterministic, for tests/offline dev) |
+| AI_PROVIDER | gemini | `gemini`, `groq`, `mock` (deterministic, for tests/offline dev) or `local` (trained reference classifier only, no external AI) |
 | GEMINI_API_KEY | (secret, already present) | |
 | GEMINI_MODEL | gemini-3.5-flash | |
+| GROQ_API_KEY | (secret) | Groq: vision provider when AI_PROVIDER=groq, and treatment plans |
+| GROQ_MODEL | qwen/qwen3.8-27b | Groq vision model (must accept images) |
+| TREATMENT_PLAN_MODEL | openai/gpt-oss-120b | Groq text model for treatment plans (independent of AI_PROVIDER) |
+| TREATMENT_PLAN_TEMPERATURE | 0.2 | |
+| TREATMENT_PLAN_TIMEOUT_MS | 45000 | |
+| TREATMENT_PLAN_WATER_MIN_L_PER_HA | 100 | spray volumes the plan may use |
+| TREATMENT_PLAN_WATER_MAX_L_PER_HA | 400 | |
+| TREATMENT_PLAN_DEFAULT_TANK_L | 3000 | sprayer tank when the request names none |
 | GEMINI_TIMEOUT_MS | 30000 | |
-| GEMINI_MAX_RETRIES | 2 | |
+| GEMINI_MAX_RETRIES | 2 | retried only on 429, 5xx, timeout, network errors |
+| GEMINI_RETRY_BASE_DELAY_MS | 1500 | pause before retry n is base * 2^(n-1); on 429 the `retryDelay` Gemini returns is used instead |
+| GEMINI_RETRY_MAX_DELAY_MS | 30000 | upper bound of one pause; a spent daily quota (`PerDay` quota id) is not retried |
 | AI_TEMPERATURE | 0.2 | provider sampling temperature (not calibration) |
 | RECOGNITION_CALIBRATION_TEMPERATURE | 1.5 | temperature scaling T applied to logits derived from raw scores (4.3) |
 | RECOGNITION_UNSURE_THRESHOLD | 0.5 | top-1 calibrated probability below this -> "not sure" (FR-8) |
@@ -394,6 +408,31 @@ Existing `backend/.env` holds the real `GEMINI_API_KEY`: never print/overwrite. 
 | RECOGNITION_TOP_K | 3 | hypotheses returned |
 | RECOGNITION_MULTIFRAME_AGGREGATION | mean_log_prob | `mean_log_prob` or `mean_prob` |
 | RECOGNITION_CRITICAL_RECALL_BIAS | 0.1 | probability boost for critical/quarantine diagnoses to favour recall |
+| SIMILARITY_ENABLED | false | kNN over labelled reference photos in Qdrant (be-similarity); off = recognition uses the vision provider only |
+| QDRANT_URL | (empty) | required when SIMILARITY_ENABLED; e.g. `http://localhost:6333` or a Qdrant Cloud cluster URL |
+| QDRANT_API_KEY | (secret, empty for local) | Qdrant Cloud API key |
+| QDRANT_COLLECTION | crop_references | |
+| SIMILARITY_EMBEDDER_MODEL | Xenova/clip-vit-base-patch32 | transformers.js image model (CLIP or DINOv2, e.g. `onnx-community/dinov2-base`), downloaded once into SIMILARITY_MODEL_CACHE_DIR |
+| SIMILARITY_EMBEDDER_DTYPE | fp32 | `fp32`, `fp16` or `q8`; changing model or dtype requires re-indexing into a new collection |
+| SIMILARITY_EMBEDDER_DEVICE | cpu | `cpu` or `dml` (DirectML GPU, Windows) |
+| SIMILARITY_EMBEDDER_GPU_ID | 0 | DirectML adapter index; laptops often have the integrated GPU at 0 |
+| SIMILARITY_MODEL_CACHE_DIR | ./data/models | |
+| SIMILARITY_NEIGHBOURS | 20 | neighbours per photo, filtered by the observation crop |
+| SIMILARITY_BLEND_WEIGHT | 0.3 | raw score = (1 - w) * provider + w * neighbour vote, before calibration |
+| SIMILARITY_VOTE_EXPONENT | 4 | neighbour vote weight = cosine similarity ^ exponent |
+| SIMILARITY_OOD_MIN_SCORE | 0 | best neighbour similarity below this -> `out_of_distribution`; 0 = off (CLIP similarities sit around 0.8-0.95, tune on data) |
+| SIMILARITY_TIMEOUT_MS | 15000 | lookup budget; on timeout or error recognition continues without neighbours |
+| SIMILARITY_INDEX_BATCH_SIZE | 32 | images per upsert in `npm run index:references` |
+| SIMILARITY_CLASSIFIER_PATH | ./data/models/reference-classifier.json | probe trained by `npm run train:classifier` on the Qdrant vectors; when present it replaces the kNN vote (neighbours still give the OOD score); read once, restart after re-training |
+| SIMILARITY_TRAIN_EPOCHS | 300 | full-batch gradient descent epochs |
+| SIMILARITY_TRAIN_LEARNING_RATE | 0.5 | on standardised embeddings |
+| SIMILARITY_TRAIN_L2 | 0.001 | weight decay |
+| SIMILARITY_TRAIN_VALIDATION_FRACTION | 0.15 | held out per class to report accuracy before the final fit on all vectors |
+| SIMILARITY_TRAIN_MAX_SAMPLE_WEIGHT | 10 | each dataset source weighs the same within a class; this caps one photo's weight (a single confirmed photo must not outweigh a dataset) |
+| SIMILARITY_RETRAIN_DELAY_MS | 60000 | after a confirmation, retrain this much later (bursts cost one retrain; training yields to the event loop) |
+| SIMILARITY_DATASETS_DIR | ./data/datasets | indexed datasets live below it; `GET /similarity/photos/:id` serves dataset files from here only |
+| SIMILARITY_LAB_DIR | ./data/lab | `npm run lab`: embedding cache, run history, HTML training reports |
+| SIMILARITY_EXAMPLES_PER_DIAGNOSIS | 3 | most similar labelled photos kept per hypothesis for comparison |
 | WEATHER_PROVIDER_URL | https://api.open-meteo.com/v1/forecast | |
 | WEATHER_HORIZON_HOURS | 72 | FR-16 |
 | WEATHER_CACHE_TTL_MINUTES | 60 | |
@@ -423,6 +462,10 @@ Existing `backend/.env` holds the real `GEMINI_API_KEY`: never print/overwrite. 
 | SYNC_BACKOFF_FACTOR | 2 | |
 | SYNC_BATCH_SIZE | 25 | max items per push |
 | SYNC_REFINE_CONCURRENCY | 2 | server refinement queue |
+| SYNC_REFINE_MAX_ATTEMPTS | 5 | a refinement whose provider failed on every photo is retried; only the last failure is stored |
+| SYNC_REFINE_RETRY_BASE_MS | 60000 | pause before retry n is base * 2^(n-1) |
+| SYNC_REFINE_RETRY_MAX_MS | 900000 | upper bound of one refinement retry pause |
+| SYNC_REFINE_QUOTA_PAUSE_MS | 3600000 | on HTTP 429 the whole refinement queue pauses without spending attempts: this long for a spent daily quota, else the provider's `retryDelay` (at least SYNC_REFINE_RETRY_BASE_MS) |
 | SYNC_CLIENT_CONFIG_EXPOSED | true | `/sync/status` returns the backoff/batch values so the client reads them |
 | STOCK_LOW_THRESHOLD_FRACTION | 0.1 | |
 | AUDIT_RETENTION_DAYS | 730 | |
@@ -569,7 +612,7 @@ Rules: `hypotheses` has up to 3 entries sorted by probability, raw probabilities
 2. No trained on-device CNN (FR-24, 4.3 INT8/TFLite): diagnosis uses a vision API (Gemini) behind `VisionProvider`; the offline path performs the Quality Gate (FR-2), stores a draft observation, and server diagnosis plus refinement runs after sync (FR-26). Therefore "full offline diagnostics" (section 7) is only partially met: offline gives capture, drafts, task drafts, cached catalogue/references, not a diagnosis. The 1-2 s on-device target is unmet.
 3. Probabilities are the LLM's self-reported scores post-processed by temperature scaling with a configured T; they are not calibrated on a validation set. ECE target (4.5) cannot be claimed until a labelled set exists; the flywheel (4.4) collects it.
 4. Grad-CAM is replaced by model-provided bounding regions (FR-10); regions are approximate.
-5. No vector DB (section 6): reference image lookup is by diagnosis code (YAGNI). No GPU inference service, no ML platform/model registry, no drift monitoring (4.4 steps 4-5) in MVP.
+5. Vector DB (section 6) is optional: be-similarity stores CLIP embeddings of labelled dataset photos in Qdrant and blends a vote into the provider's hypotheses: from a softmax probe trained on those vectors (`npm run train:classifier`) when present, else kNN (`SIMILARITY_*`, off by default; datasets are indexed with `npm run index:references`, see `docs/datasets/README.md`). `AI_PROVIDER=local` replaces the external vision API with that probe (`LocalVisionProvider`): ranked codes only, no crop/organ detection, regions, pest counts or clarifying questions; crops it was not trained on come back out of distribution. Catalogue reference images are still looked up by diagnosis code. No GPU inference service, no ML platform/model registry, no drift monitoring (4.4 steps 4-5) in MVP.
 6. SSO: local email/password with JWT; group SSO later. Encryption at rest relies on host disk encryption, backups are an ops task (file copy of the SQLite DB and storage dir).
 7. Stock: local table with CSV import; AP Storage/ERP connector is behind `StockProvider`, not implemented.
 8. Seed catalogue data (products, registrations, thresholds, rates, intervals, buffers) is DEMO (`isDemo = true`, `source = demo_seed`) and must be verified against the State Register of Pesticides and Agrochemicals of Ukraine and the farm's technology cards before any real use (acceptance criterion 11.4). The UI shows a demo-data banner while `containsDemoData` is true.

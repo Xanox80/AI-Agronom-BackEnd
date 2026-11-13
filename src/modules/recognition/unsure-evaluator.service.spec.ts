@@ -28,6 +28,10 @@ describe('UnsureEvaluator', () => {
     expect(reasonFor({ providerSaysOutOfDistribution: true })).toBe(UnsureReason.OutOfDistribution);
   });
 
+  it('returns out_of_distribution when no labelled reference photo is close enough', () => {
+    expect(reasonFor({ referencesSayOutOfDistribution: true })).toBe(UnsureReason.OutOfDistribution);
+  });
+
   it('returns unknown_code when the top code is not in the catalogue', () => {
     expect(reasonFor({ topCodeKnown: false })).toBe(UnsureReason.UnknownCode);
   });

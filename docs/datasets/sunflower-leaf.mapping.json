@@ -1,0 +1,14 @@
+{
+  "source": "sunflower-leaf",
+  "attribution": "Mendeley: Sunflower Leaf Disease Image Dataset c5mxmfmprt (CC BY 4.0)",
+  "classes": {
+    "Downy Mildew": {
+      "diagnosisCode": "sunflower_downy_mildew",
+      "cropCode": "sunflower"
+    },
+    "Healthy": {
+      "diagnosisCode": "healthy_plant",
+      "cropCode": "sunflower"
+    }
+  }
+}
